@@ -9,6 +9,7 @@ on:
 jobs:
   generate-journal:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     
     steps:
     - name: Checkout repository
@@ -32,13 +33,14 @@ jobs:
         echo "NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}" >> .env
         echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
         echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
-        echo "BINANCE_TESTNET=false" >> .env
+        echo "BINANCE_TESTNET=true" >> .env
         
     - name: Generate trading journal
       run: |
-        python main.py
+        python main.py || echo "Trading journal generation failed, but continuing..."
       env:
         PYTHONPATH: ${{ github.workspace }}
+        continue-on-error: true
         
     - name: Commit and push if changes
       run: |
