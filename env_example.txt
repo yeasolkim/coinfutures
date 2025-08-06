@@ -1,0 +1,15 @@
+# Binance API 설정
+BINANCE_API_KEY=your_binance_api_key_here
+BINANCE_SECRET_KEY=your_binance_secret_key_here
+BINANCE_TESTNET=False
+
+# OpenAI API 설정
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Notion API 설정
+NOTION_TOKEN=secret_your_notion_integration_token_here
+NOTION_DATABASE_ID=your_notion_database_id_here
+
+# Supabase 설정
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your_supabase_anon_key_here 
