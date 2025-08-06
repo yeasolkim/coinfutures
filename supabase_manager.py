@@ -159,10 +159,17 @@ class SupabaseManager:
                 }
                 position_records.append(position_record)
             
-            # 포지션 그룹 저장
-            result = self.supabase.table('position_groups').insert(
-                position_records
-            ).execute()
+            # 포지션 그룹 저장 (중복 방지)
+            # 기존 포지션 그룹 삭제 후 새로 생성
+            if position_records:
+                # 기존 포지션 그룹 모두 삭제
+                self.supabase.table('position_groups').delete().execute()
+                logger.info("🗑️ 기존 포지션 그룹 삭제 완료")
+                
+                # 새로운 포지션 그룹 저장
+                result = self.supabase.table('position_groups').insert(
+                    position_records
+                ).execute()
             
             logging.info(f"✅ {len(position_records)}개 포지션 그룹 저장 완료")
             return result
