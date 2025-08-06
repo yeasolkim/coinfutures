@@ -210,11 +210,29 @@ coinfutures/
 
 ## 📈 확장 기능
 
-### 1. 일일 자동 실행
+### 1. GitHub Actions 자동 실행 (권장)
+GitHub Actions를 사용하면 컴퓨터가 꺼져있어도 매일 자동으로 실행됩니다:
+
+1. **GitHub Secrets 설정**
+   - 저장소 Settings → Secrets and variables → Actions
+   - 다음 시크릿들을 추가:
+     - `BINANCE_API_KEY`
+     - `BINANCE_SECRET_KEY`
+     - `NOTION_TOKEN`
+     - `NOTION_DATABASE_ID`
+     - `SUPABASE_URL`
+     - `SUPABASE_KEY`
+
+2. **워크플로우 확인**
+   - Actions 탭에서 "Daily Trading Journal" 워크플로우 확인
+   - 매일 오전 9시 1분(한국 시간)에 자동 실행
+   - 수동 실행도 가능 (workflow_dispatch)
+
+### 2. 로컬 자동 실행
 cron 또는 Task Scheduler를 사용하여 매일 자동 실행:
 ```bash
 # 매일 오전 9시에 실행
-0 9 * * * cd /path/to/coinfutures && python main.py --symbol BTCUSDT
+0 9 * * * cd /path/to/coinfutures && python main.py
 ```
 
 ### 2. 다중 계정 지원
