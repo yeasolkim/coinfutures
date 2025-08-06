@@ -210,23 +210,21 @@ coinfutures/
 
 ## 📈 확장 기능
 
-### 1. GitHub Actions 자동 실행 (권장)
-GitHub Actions를 사용하면 컴퓨터가 꺼져있어도 매일 자동으로 실행됩니다:
+### 1. Railway 자동 실행 (권장)
+Railway를 사용하면 지역 제한 없이 매일 자동으로 실행됩니다:
 
-1. **GitHub Secrets 설정**
-   - 저장소 Settings → Secrets and variables → Actions
-   - 다음 시크릿들을 추가:
-     - `BINANCE_API_KEY`
-     - `BINANCE_SECRET_KEY`
-     - `NOTION_TOKEN`
-     - `NOTION_DATABASE_ID`
-     - `SUPABASE_URL`
-     - `SUPABASE_KEY`
+1. **Railway 설정**
+   - [Railway.app](https://railway.app)에서 계정 생성
+   - GitHub 저장소 연결
+   - 환경변수 설정 (API 키들)
+   - Cron Job 설정 (매일 오전 9시 1분)
 
-2. **워크플로우 확인**
-   - Actions 탭에서 "Daily Trading Journal" 워크플로우 확인
-   - 매일 오전 9시 1분(한국 시간)에 자동 실행
-   - 수동 실행도 가능 (workflow_dispatch)
+2. **상세 설정 방법**
+   - `RAILWAY_SETUP.md` 파일 참조
+   - 무료 티어로 충분 (월 500시간)
+
+### 2. GitHub Actions 자동 실행 (지역 제한 있음)
+GitHub Actions는 Binance API 지역 제한으로 인해 권장하지 않습니다.
 
 ### 2. 로컬 자동 실행
 cron 또는 Task Scheduler를 사용하여 매일 자동 실행:
