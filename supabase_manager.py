@@ -162,10 +162,10 @@ class SupabaseManager:
             # 포지션 그룹 저장 (중복 방지)
             # 기존 포지션 그룹 삭제 후 새로 생성
             if position_records:
-                # 기존 포지션 그룹 모두 삭제 (안전한 WHERE 절 사용)
+                # 기존 포지션 그룹 모두 삭제 (더 안전한 방법)
                 try:
                     # 모든 레코드 삭제를 위해 항상 참인 조건 사용
-                    self.supabase.table('position_groups').delete().neq('id', -1).execute()
+                    self.supabase.table('position_groups').delete().gte('id', 0).execute()
                     logging.info("🗑️ 기존 포지션 그룹 삭제 완료")
                 except Exception as e:
                     logging.warning(f"기존 포지션 그룹 삭제 중 오류 (무시하고 진행): {e}")
