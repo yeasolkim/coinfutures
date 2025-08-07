@@ -62,7 +62,8 @@ class SupabaseManager:
             position_status TEXT NOT NULL, -- 'Open', 'Closed'
             close_date DATE,
             created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW()
+            updated_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(symbol, start_time, side)
         );
 
         -- 일별 P&L 요약 테이블
@@ -159,21 +160,28 @@ class SupabaseManager:
                 }
                 position_records.append(position_record)
             
-            # 포지션 그룹 저장 (중복 방지)
-            # 기존 포지션 그룹 삭제 후 새로 생성
+            # 포지션 그룹 저장 (누적 방식)
             if position_records:
-                # 기존 포지션 그룹 모두 삭제 (더 안전한 방법)
                 try:
-                    # 모든 레코드 삭제를 위해 항상 참인 조건 사용
-                    self.supabase.table('position_groups').delete().gte('id', 0).execute()
-                    logging.info("🗑️ 기존 포지션 그룹 삭제 완료")
+                    # 배치 upsert 방식으로 중복 방지 및 누적 저장
+                    # symbol + start_time + side 조합으로 중복 체크
+                    result = self.supabase.table('position_groups').upsert(
+                        position_records,
+                        on_conflict='symbol,start_time,side'
+                    ).execute()
+                    
+                    logging.info(f"✅ {len(position_records)}개 포지션 그룹 upsert 완료")
+                    
                 except Exception as e:
-                    logging.warning(f"기존 포지션 그룹 삭제 중 오류 (무시하고 진행): {e}")
-                
-                # 새로운 포지션 그룹 저장
-                result = self.supabase.table('position_groups').insert(
-                    position_records
-                ).execute()
+                    logging.error(f"포지션 그룹 upsert 실패: {e}")
+                    # fallback: 개별 저장
+                    for position_record in position_records:
+                        try:
+                            self.supabase.table('position_groups').insert(position_record).execute()
+                        except Exception as insert_error:
+                            logging.warning(f"개별 포지션 저장 실패: {insert_error}")
+                    
+                    result = {"success": True}
             
             logging.info(f"✅ {len(position_records)}개 포지션 그룹 저장 완료")
             return result

@@ -363,25 +363,16 @@ class EmotionalTradingJournal:
                 # 수수료 계산
                 total_commission = sum(float(trade['commission']) for trade in position_related_trades)
                 
-                # 시간 정보를 한국 시간으로 변환
-                from datetime import timezone
+                # 시간 정보를 Supabase 데이터 그대로 사용
+                # 진입 시간 (HH:MM:SS 형식)
+                entry_time_str = pos['start_time'][11:16] if len(pos['start_time']) >= 16 else pos['start_time']
                 
-                # UTC 시간을 한국 시간(KST, UTC+9)으로 변환
-                kst_timezone = timezone(timedelta(hours=9))
-                
-                # 진입 시간 변환
-                entry_time_utc = datetime.fromisoformat(pos['start_time'])
-                entry_time_kst = entry_time_utc.replace(tzinfo=timezone.utc).astimezone(kst_timezone)
-                entry_time_str = entry_time_kst.strftime('%m/%d %H:%M')
-                
-                # 종료 시간 변환
+                # 종료 시간 (HH:MM:SS 형식)
                 exit_time_str = ''
                 if pos['end_time']:
-                    exit_time_utc = datetime.fromisoformat(pos['end_time'])
-                    exit_time_kst = exit_time_utc.replace(tzinfo=timezone.utc).astimezone(kst_timezone)
-                    exit_time_str = exit_time_kst.strftime('%m/%d %H:%M')
+                    exit_time_str = pos['end_time'][11:16] if len(pos['end_time']) >= 16 else pos['end_time']
                 
-                # 보유 기간 계산 (한국 시간 기준)
+                # 보유 기간 계산
                 duration_hours = pos['duration_minutes'] // 60
                 duration_minutes = pos['duration_minutes'] % 60
                 if duration_hours > 0:
