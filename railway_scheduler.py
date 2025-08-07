@@ -17,8 +17,12 @@ async def main():
     try:
         logger.info("🚀 Railway 매매일지 생성 시작...")
         
-        # 현재 날짜 (한국 시간 기준)
-        target_date = datetime.now()
+        # Railway 스케줄러용 날짜 설정
+        # UTC 9시 1분에 실행되므로 전날 매매일지 생성
+        from datetime import timedelta
+        target_date = datetime.now() - timedelta(days=1)
+        
+        logger.info(f"📅 Railway 스케줄러: {target_date.strftime('%Y-%m-%d')} 매매일지 생성")
         
         # 매매일지 시스템 초기화
         journal_system = EmotionalTradingJournal()

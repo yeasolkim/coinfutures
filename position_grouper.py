@@ -7,7 +7,7 @@ Supabase 거래 데이터를 포지션 그룹으로 변환하는 스크립트
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from supabase_manager import SupabaseManager
 from utils import setup_logging
@@ -23,14 +23,22 @@ class PositionGrouper:
         self.supabase = SupabaseManager()
         logging.info("🔗 Supabase 포지션 그룹화기 초기화 완료")
 
-    async def create_all_position_groups(self):
-        """모든 거래 데이터를 포지션 그룹으로 변환"""
+    async def create_all_position_groups(self, target_date: datetime = None):
+        """모든 거래 데이터를 포지션 그룹으로 변환 (9시 기준 날짜 범위 지원)"""
         try:
             logging.info("🚀 전체 포지션 그룹화 시작...")
             
-            # 1. 모든 거래 데이터 조회
-            all_trades = await self.supabase.get_all_trades()
-            logging.info(f"📊 총 {len(all_trades)}개 거래 데이터 로드 완료")
+            # 1. 거래 데이터 조회 (날짜 범위 지정 가능)
+            if target_date:
+                # 9시 기준으로 해당 날짜의 거래만 조회
+                start_time = target_date.replace(hour=9, minute=0, second=0, microsecond=0)
+                end_time = start_time + timedelta(days=1)
+                all_trades = await self.supabase.get_all_trades(start_time, end_time)
+                logging.info(f"📊 {target_date.date()} (9시 기준) 거래 데이터: {len(all_trades)}개")
+            else:
+                # 전체 거래 데이터 조회
+                all_trades = await self.supabase.get_all_trades()
+                logging.info(f"📊 총 {len(all_trades)}개 거래 데이터 로드 완료")
             
             if not all_trades:
                 logging.warning("❌ 거래 데이터가 없습니다.")
@@ -51,7 +59,7 @@ class PositionGrouper:
             for symbol, symbol_trades in trades_by_symbol.items():
                 logging.info(f"🔄 {symbol} 포지션 그룹화 시작... ({len(symbol_trades)}개 거래)")
                 
-                position_groups = await self._group_trades_by_net_position(symbol, symbol_trades)
+                position_groups = await self._group_trades_by_net_position(symbol, symbol_trades, target_date)
                 all_position_groups.extend(position_groups)
                 
                 logging.info(f"✅ {symbol}: {len(position_groups)}개 포지션 생성")
@@ -69,8 +77,8 @@ class PositionGrouper:
             logging.error(f"❌ 포지션 그룹화 실패: {e}")
             raise
 
-    async def _group_trades_by_net_position(self, symbol: str, trades: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Net Position 로직으로 거래들을 포지션 그룹으로 변환"""
+    async def _group_trades_by_net_position(self, symbol: str, trades: List[Dict[str, Any]], target_date: datetime = None) -> List[Dict[str, Any]]:
+        """Net Position 로직으로 거래들을 포지션 그룹으로 변환 (9시 기준 날짜 범위 지원)"""
         try:
             # 시간순 정렬
             sorted_trades = sorted(trades, key=lambda x: x['time'])
@@ -97,18 +105,40 @@ class PositionGrouper:
                     # 포지션 그룹 생성
                     position_group = await self._create_position_group(symbol, current_group_trades, 'Closed')
                     if position_group:
-                        position_groups.append(position_group)
+                        # 9시 기준 날짜 범위 체크 (target_date가 지정된 경우)
+                        if target_date:
+                            start_time = target_date.replace(hour=9, minute=0, second=0, microsecond=0)
+                            end_time = start_time + timedelta(days=1)
+                            position_start = datetime.fromtimestamp(current_group_trades[0]['time'] / 1000)
+                            position_end = datetime.fromtimestamp(current_group_trades[-1]['time'] / 1000)
+                            
+                            # 해당 날짜 범위에 완료된 포지션만 포함
+                            if start_time <= position_end < end_time:
+                                position_groups.append(position_group)
+                        else:
+                            position_groups.append(position_group)
                     
                     # 초기화
                     current_group_trades = []
                     current_net_position = 0.0
             
-            # 미완료 포지션 처리
+            # 미완료 포지션 처리 (9시 기준 날짜 범위 체크)
             if current_group_trades and abs(current_net_position) > 0.0001:
                 position_group = await self._create_position_group(symbol, current_group_trades, 'Open')
                 if position_group:
-                    position_groups.append(position_group)
-                    logging.info(f"🔴 {symbol}: 미완료 포지션 발견 (Net: {current_net_position:.4f})")
+                    # 9시 기준 날짜 범위 체크 (target_date가 지정된 경우)
+                    if target_date:
+                        start_time = target_date.replace(hour=9, minute=0, second=0, microsecond=0)
+                        end_time = start_time + timedelta(days=1)
+                        position_start = datetime.fromtimestamp(current_group_trades[0]['time'] / 1000)
+                        
+                        # 해당 날짜 범위에 시작된 미완료 포지션만 포함
+                        if start_time <= position_start < end_time:
+                            position_groups.append(position_group)
+                            logging.info(f"🔴 {symbol}: 미완료 포지션 발견 (Net: {current_net_position:.4f})")
+                    else:
+                        position_groups.append(position_group)
+                        logging.info(f"🔴 {symbol}: 미완료 포지션 발견 (Net: {current_net_position:.4f})")
             
             return position_groups
             

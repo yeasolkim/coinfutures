@@ -162,9 +162,13 @@ class SupabaseManager:
             # 포지션 그룹 저장 (중복 방지)
             # 기존 포지션 그룹 삭제 후 새로 생성
             if position_records:
-                # 기존 포지션 그룹 모두 삭제
-                self.supabase.table('position_groups').delete().execute()
-                logger.info("🗑️ 기존 포지션 그룹 삭제 완료")
+                # 기존 포지션 그룹 모두 삭제 (안전한 WHERE 절 사용)
+                try:
+                    # 모든 레코드 삭제를 위해 항상 참인 조건 사용
+                    self.supabase.table('position_groups').delete().neq('id', -1).execute()
+                    logging.info("🗑️ 기존 포지션 그룹 삭제 완료")
+                except Exception as e:
+                    logging.warning(f"기존 포지션 그룹 삭제 중 오류 (무시하고 진행): {e}")
                 
                 # 새로운 포지션 그룹 저장
                 result = self.supabase.table('position_groups').insert(
@@ -215,8 +219,8 @@ class SupabaseManager:
             logging.error(f"포지션 히스토리 저장 실패: {e}")
             raise
 
-    async def update_position_groups(self, target_date: datetime):
-        """포지션 그룹 업데이트 (PositionGrouper 사용)"""
+    async def update_position_groups(self, target_date: datetime = None):
+        """포지션 그룹 업데이트 (PositionGrouper 사용) - 9시 기준 날짜 범위 지원"""
         try:
             from position_grouper import PositionGrouper
             
@@ -224,9 +228,13 @@ class SupabaseManager:
             
             # PositionGrouper를 사용하여 포지션 그룹 재생성
             grouper = PositionGrouper()
-            position_groups = await grouper.create_all_position_groups()
+            position_groups = await grouper.create_all_position_groups(target_date)
             
-            logging.info(f"✅ 포지션 그룹 업데이트 완료: {len(position_groups) if position_groups else 0}개")
+            if target_date:
+                logging.info(f"✅ {target_date.date()} (9시 기준) 포지션 그룹 업데이트 완료: {len(position_groups) if position_groups else 0}개")
+            else:
+                logging.info(f"✅ 전체 포지션 그룹 업데이트 완료: {len(position_groups) if position_groups else 0}개")
+            
             return position_groups
             
         except Exception as e:

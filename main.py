@@ -251,13 +251,30 @@ class EmotionalTradingJournal:
             
             logger.info(f"📊 발견된 거래 종목: {len(all_symbols)}개")
             
-            # 2. 각 종목별로 거래 데이터 수집 및 저장
+            # 2. 각 종목별로 거래 데이터 수집 및 저장 (최적화)
             total_trades_saved = 0
             for symbol in all_symbols:
+                # 해당 종목의 최신 거래 데이터 확인
+                latest_trade = await self._get_latest_trade_for_symbol(symbol)
+                
+                if latest_trade:
+                    # 이미 저장된 최신 거래 이후부터만 수집
+                    latest_time = latest_trade['time']
+                    logger.info(f"📊 {symbol}: 최신 거래 시간 {latest_time} 이후부터 수집")
+                else:
+                    # 처음 수집하는 종목이면 최근 7일간 수집
+                    latest_time = None
+                    logger.info(f"📊 {symbol}: 처음 수집, 최근 7일간 데이터 수집")
+                
+                # 최신 거래 이후의 데이터만 수집
                 for i in range(7):  # 7일간 일별로
                     sync_date = target_date - timedelta(days=i)
                     start_time = sync_date.replace(hour=9, minute=0, second=0, microsecond=0)
                     end_time = start_time + timedelta(days=1)
+                    
+                    # 이미 저장된 데이터는 건너뛰기
+                    if latest_time and start_time.timestamp() * 1000 <= latest_time:
+                        continue
                     
                     # 거래 데이터 수집 및 저장
                     trades = await self.binance.get_account_trades(symbol, start_time, end_time)
@@ -268,7 +285,7 @@ class EmotionalTradingJournal:
             
             logger.info(f"📊 총 {total_trades_saved}개 거래 데이터 저장 완료")
             
-            # 3. 포지션 그룹핑 업데이트 (거래 데이터로부터 포지션 그룹 재생성)
+            # 3. 포지션 그룹핑 업데이트 (해당 날짜 9시 기준으로 포지션 그룹 재생성)
             logger.info("🔄 포지션 그룹핑 업데이트 중...")
             position_groups = await self.supabase.update_position_groups(target_date)
             
@@ -295,24 +312,71 @@ class EmotionalTradingJournal:
             logger.error(f"❌ Supabase 데이터 동기화 실패: {e}")
             raise
 
+    async def _get_latest_trade_for_symbol(self, symbol: str) -> Optional[Dict]:
+        """특정 종목의 최신 거래 데이터 조회"""
+        try:
+            result = self.supabase.supabase.table('trades').select('*').eq(
+                'symbol', symbol
+            ).order('time', desc=True).limit(1).execute()
+            
+            if result.data:
+                return result.data[0]
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ {symbol} 최신 거래 조회 실패: {e}")
+            return None
+
     async def _create_journal_data_from_supabase(self, target_date: datetime, closed_positions: List[Dict], daily_pnl_data: Dict) -> Dict:
         """Supabase 데이터로부터 매매일지 데이터 생성"""
         try:
-            # 포지션 데이터 변환
+            # 포지션별 수수료 계산을 위해 해당 날짜의 거래 데이터 조회
+            start_time = target_date.replace(hour=9, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(days=1)
+            daily_trades = await self.supabase.get_all_trades(start_time, end_time)
+            
+            # 포지션별 거래 데이터 매핑
+            position_trades = {}
+            for trade in daily_trades:
+                symbol = trade['symbol']
+                if symbol not in position_trades:
+                    position_trades[symbol] = []
+                position_trades[symbol].append(trade)
+            
+            # 포지션 데이터 변환 (수수료 정보 추가)
             positions = []
             for pos in closed_positions:
+                symbol = pos['symbol']
+                symbol_trades = position_trades.get(symbol, [])
+                
+                # 해당 포지션 기간의 거래들 필터링 (시간 범위로 추정)
+                position_start = datetime.fromisoformat(pos['start_time'])
+                position_end = datetime.fromisoformat(pos['end_time']) if pos['end_time'] else position_start
+                
+                # 포지션 기간과 겹치는 거래들 찾기
+                position_related_trades = []
+                for trade in symbol_trades:
+                    trade_time = datetime.fromtimestamp(trade['time'] / 1000)
+                    if position_start <= trade_time <= position_end:
+                        position_related_trades.append(trade)
+                
+                # 수수료 계산
+                total_commission = sum(float(trade['commission']) for trade in position_related_trades)
+                
                 position = {
                     'symbol': pos['symbol'],
                     'side': pos['side'],
                     'entry_price': float(pos['entry_price']),
                     'exit_price': float(pos['exit_price']),
                     'quantity': float(pos['quantity']),
-                    'pnl_amount': float(pos['pnl_amount']),
+                    'pnl_amount': float(pos['pnl_amount']),  # 순수익 (가격 차익)
                     'pnl_percentage': float(pos['pnl_percentage']),
                     'start_time': pos['start_time'][:8],  # HH:MM:SS 형식
                     'end_time': pos['end_time'][:8] if pos['end_time'] else '',
                     'duration_minutes': pos['duration_minutes'],
                     'trade_count': pos['trade_count'],
+                    'commission': total_commission,  # 수수료 추가
+                    'actual_pnl': float(pos['pnl_amount']) - total_commission,  # 실손익
                     'position_type': 'Closed'
                 }
                 positions.append(position)

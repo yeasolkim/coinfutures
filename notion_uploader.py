@@ -373,9 +373,11 @@ class NotionUploader:
                         "cells": [
                             [{"type": "text", "text": {"content": "종목"}}],
                             [{"type": "text", "text": {"content": "방향"}}],
-                            [{"type": "text", "text": {"content": "수익률"}}],
                             [{"type": "text", "text": {"content": "거래횟수"}}],
-                            [{"type": "text", "text": {"content": "수익금"}}]
+                            [{"type": "text", "text": {"content": "수익률"}}],
+                            [{"type": "text", "text": {"content": "실손익"}}],
+                            [{"type": "text", "text": {"content": "순수익"}}],
+                            [{"type": "text", "text": {"content": "수수료"}}]
                             ]
                         }
                 }
@@ -395,15 +397,23 @@ class NotionUploader:
                 # 종목명에 아이콘 추가
                 symbol_name = f"{symbol_icon} {pos['symbol']}"
                 
+                # 실제 수수료 데이터 사용
+                trade_count = pos.get('trade_count', 1)
+                commission = pos.get('commission', 0)  # 실제 수수료
+                pure_pnl = float(pos.get('pnl_amount', 0))  # 순수익 (가격 차익)
+                actual_pnl = pos.get('actual_pnl', pure_pnl)  # 실손익
+                
                 table_rows.append({
                     "type": "table_row",
                     "table_row": {
                         "cells": [
                             [{"type": "text", "text": {"content": symbol_name}}],
                             [{"type": "text", "text": {"content": pos['side']}}],
+                            [{"type": "text", "text": {"content": f"{trade_count}회"}}],
                             [{"type": "text", "text": {"content": f"{pos['pnl_percentage']:+.2f}%"}}],
-                            [{"type": "text", "text": {"content": f"{pos.get('trade_count', 1)}회"}}],
-                            [{"type": "text", "text": {"content": f"{pos['pnl_amount']:+.4f} USDT"}}]
+                            [{"type": "text", "text": {"content": f"{actual_pnl:+.4f} USDT"}}],
+                            [{"type": "text", "text": {"content": f"{pure_pnl:+.4f} USDT"}}],
+                            [{"type": "text", "text": {"content": f"-{commission:.4f} USDT"}}]
                         ]
                     }
                 })
@@ -413,7 +423,7 @@ class NotionUploader:
                         "object": "block",
                 "type": "table",
                 "table": {
-                    "table_width": 5,
+                    "table_width": 7,
                     "has_column_header": True,
                     "has_row_header": False,
                     "children": table_rows
