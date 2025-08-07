@@ -363,6 +363,32 @@ class EmotionalTradingJournal:
                 # 수수료 계산
                 total_commission = sum(float(trade['commission']) for trade in position_related_trades)
                 
+                # 시간 정보를 한국 시간으로 변환
+                from datetime import timezone
+                
+                # UTC 시간을 한국 시간(KST, UTC+9)으로 변환
+                kst_timezone = timezone(timedelta(hours=9))
+                
+                # 진입 시간 변환
+                entry_time_utc = datetime.fromisoformat(pos['start_time'])
+                entry_time_kst = entry_time_utc.replace(tzinfo=timezone.utc).astimezone(kst_timezone)
+                entry_time_str = entry_time_kst.strftime('%m/%d %H:%M')
+                
+                # 종료 시간 변환
+                exit_time_str = ''
+                if pos['end_time']:
+                    exit_time_utc = datetime.fromisoformat(pos['end_time'])
+                    exit_time_kst = exit_time_utc.replace(tzinfo=timezone.utc).astimezone(kst_timezone)
+                    exit_time_str = exit_time_kst.strftime('%m/%d %H:%M')
+                
+                # 보유 기간 계산 (한국 시간 기준)
+                duration_hours = pos['duration_minutes'] // 60
+                duration_minutes = pos['duration_minutes'] % 60
+                if duration_hours > 0:
+                    duration_str = f"{duration_hours}시간 {duration_minutes}분"
+                else:
+                    duration_str = f"{duration_minutes}분"
+                
                 position = {
                     'symbol': pos['symbol'],
                     'side': pos['side'],
@@ -371,8 +397,9 @@ class EmotionalTradingJournal:
                     'quantity': float(pos['quantity']),
                     'pnl_amount': float(pos['pnl_amount']),  # 순수익 (가격 차익)
                     'pnl_percentage': float(pos['pnl_percentage']),
-                    'start_time': pos['start_time'][:8],  # HH:MM:SS 형식
-                    'end_time': pos['end_time'][:8] if pos['end_time'] else '',
+                    'entry_time': entry_time_str,  # 한국 시간 진입시점
+                    'exit_time': exit_time_str,  # 한국 시간 종료시점
+                    'duration': duration_str,  # 보유기간
                     'duration_minutes': pos['duration_minutes'],
                     'trade_count': pos['trade_count'],
                     'commission': total_commission,  # 수수료 추가

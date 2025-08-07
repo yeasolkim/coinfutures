@@ -373,6 +373,9 @@ class NotionUploader:
                         "cells": [
                             [{"type": "text", "text": {"content": "종목"}}],
                             [{"type": "text", "text": {"content": "방향"}}],
+                            [{"type": "text", "text": {"content": "진입시점"}}],
+                            [{"type": "text", "text": {"content": "종료시점"}}],
+                            [{"type": "text", "text": {"content": "보유기간"}}],
                             [{"type": "text", "text": {"content": "거래횟수"}}],
                             [{"type": "text", "text": {"content": "수익률"}}],
                             [{"type": "text", "text": {"content": "실손익"}}],
@@ -409,6 +412,9 @@ class NotionUploader:
                         "cells": [
                             [{"type": "text", "text": {"content": symbol_name}}],
                             [{"type": "text", "text": {"content": pos['side']}}],
+                            [{"type": "text", "text": {"content": pos.get('entry_time', '')}}],
+                            [{"type": "text", "text": {"content": pos.get('exit_time', '')}}],
+                            [{"type": "text", "text": {"content": pos.get('duration', '')}}],
                             [{"type": "text", "text": {"content": f"{trade_count}회"}}],
                             [{"type": "text", "text": {"content": f"{pos['pnl_percentage']:+.2f}%"}}],
                             [{"type": "text", "text": {"content": f"{actual_pnl:+.4f} USDT"}}],
@@ -423,7 +429,7 @@ class NotionUploader:
                         "object": "block",
                 "type": "table",
                 "table": {
-                    "table_width": 7,
+                    "table_width": 10,
                     "has_column_header": True,
                     "has_row_header": False,
                     "children": table_rows
